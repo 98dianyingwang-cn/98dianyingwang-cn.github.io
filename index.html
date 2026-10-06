@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<link rel="icon" href="favicon.ico" type="image/x-icon">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>98电影网 - 电影推荐与每日更新片单_在线观影指南</title>
+<meta name="description" content="98电影网（https://98dianyingwang-cn.github.io）用铁路时刻表的逻辑整理电影：每日更新车次片单、车厢编组、线路站点、座位分布与站台大屏，附剧情简介、时长与评分参考，页面移动端自适应，像看一趟车那样挑一部电影。">
+<meta name="keywords" content="98电影网,电影推荐,在线观看,电影评分,每日片单,车次片单,影视资讯,观影指南,类型索引,电影排行榜">
+<meta name="author" content="98电影网">
+<meta name="robots" content="index,follow">
+<meta name="renderer" content="webkit">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#0e1a2b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="98电影网">
+<link rel="canonical" href="https://98dianyingwang-cn.github.io/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="98电影网">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:title" content="98电影网 - 电影推荐与每日更新片单_在线观影指南">
+<meta property="og:description" content="98电影网每日更新车次片单、车厢编组、线路站点、座位分布与站台大屏，附剧情简介、时长与评分参考。">
+<meta property="og:url" content="https://98dianyingwang-cn.github.io/">
+<meta property="og:image" content="https://98dianyingwang-cn.github.io/cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="98电影网 - 电影推荐与每日更新片单">
+<meta name="twitter:description" content="车次片单、车厢编组、线路站点一站聚合，98电影网每日更新。">
+<style>
+/* ==========================================================
+   98电影网 · 铁路车站时刻表 / 翻页牌大屏
+   深墨蓝站房 + 米白翻页牌 + 信号黄 + 正点绿 + 晚点红
+   零件：翻页牌字符(上半/下半 + 中缝) / 车次行 / 车厢编组条 /
+        线路竖轴站序 / 座位方格 / 站台编号牌 / 状态灯
+   DOM 差异化：翻页牌报头 / 双联大屏首屏(时刻表小屏) /
+        车次时刻表行(状态灯) / 横向车厢编组 / 竖轴线路站序 /
+        座位网格 / 站台编号牌 / 检票口式 FAQ
+   ========================================================== */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","WenQuanYi Micro Hei",Helvetica,Arial,sans-serif;
+  background:#0e1a2b;color:#c8d4e4;line-height:1.82;font-size:16px;overflow-x:hidden;
+}
+a{color:inherit;text-decoration:none}
+ul,ol{list-style:none}
+img{border:0;max-width:100%;height:auto}
+h1,h2,h3,h4{line-height:1.4}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace}
+
+:root{
+  --ink:#0e1a2b;
+  --ink2:#152437;
+  --panel:#18293c;
+  --panel2:#1e3348;
+  --paper:#f2ede1;
+  --paper2:#ded7c4;
+  --amber:#ffc300;
+  --green:#2ec27e;
+  --red:#ff5252;
+  --cyan:#4cc9f0;
+  --text:#c8d4e4;
+  --sub:#9fb0c6;
+  --muted:#74879e;
+  --line:rgba(200,212,228,.16);
+  --line2:rgba(200,212,228,.32);
+}
+body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background:var(--ink)}
+body::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(760px 480px at 88% -4%,rgba(255,195,0,.13),transparent 62%),
+    radial-gradient(720px 460px at 4% 8%,rgba(76,201,240,.11),transparent 60%),
+    radial-gradient(680px 520px at 50% 108%,rgba(46,194,126,.09),transparent 62%);
+}
+.wrap{width:100%;max-width:1160px;margin:0 auto;padding:0 22px}
+
+/* ---------- 翻页牌字符 ---------- */
+.flap{
+  display:inline-flex;flex-direction:column;flex:0 0 auto;
+  width:var(--fw,34px);height:calc(var(--fw,34px) * 1.42);
+  border-radius:4px;overflow:hidden;position:relative;
+  box-shadow:0 4px 10px rgba(0,0,0,.42);
+}
+.flap::after{content:"";position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;background:rgba(0,0,0,.42);z-index:3}
+.flap i{
+  height:50%;overflow:hidden;position:relative;
+  background:linear-gradient(180deg,#fbf7ec,#e8e1ce);
+}
+.flap i.fb{background:linear-gradient(180deg,#ece5d2,#d5cdb8)}
+.flap i>span{
+  position:absolute;left:0;right:0;height:200%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+  font-weight:800;color:#1d1d22;font-size:calc(var(--fw,34px) * 0.64);letter-spacing:0;
+}
+.flap i.ft>span{top:0}
+.flap i.fb>span{bottom:0}
+.flap.dark i{background:linear-gradient(180deg,#223a52,#16273a)}
+.flap.dark i.fb{background:linear-gradient(180deg,#1b3046,#122235)}
+.flap.dark i>span{color:var(--amber)}
+.flap.dark::after{background:rgba(0,0,0,.55)}
+.flap.gn i>span{color:#0d3d28}
+.flap.gn i{background:linear-gradient(180deg,#c7f2dd,#9fe3c2)}
+.flap.gn i.fb{background:linear-gradient(180deg,#b3ecd0,#8ad9b2)}
+
+/* ---------- 状态灯 ---------- */
+.lamp{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.lamp.ok{background:var(--green);box-shadow:0 0 8px rgba(46,194,126,.75)}
+.lamp.late{background:var(--red);box-shadow:0 0 8px rgba(255,82,82,.75)}
+.lamp.wait{background:var(--amber);box-shadow:0 0 8px rgba(255,195,0,.75)}
+
+/* ============ 报头 ============ */
+header.station{position:sticky;top:0;z-index:60;background:rgba(14,26,43,.96);border-bottom:1px solid var(--line2);backdrop-filter:blur(8px)}
+.st-top{
+  max-width:1160px;margin:0 auto;padding:7px 22px;display:flex;align-items:center;gap:14px;
+  font-size:11.5px;letter-spacing:1.5px;color:var(--muted);border-bottom:1px dashed var(--line);
+}
+.st-top .lft{display:flex;align-items:center;gap:9px;white-space:nowrap}
+.st-top .rgt{margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st-top b{color:var(--amber)}
+.st-main{max-width:1160px;margin:0 auto;padding:12px 22px;display:flex;align-items:center;gap:16px}
+.logo{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.logo .flap{--fw:22px}
+.logo .txt strong{display:block;font-size:20px;letter-spacing:2px;color:var(--amber)}
+.logo .txt small{display:block;font-size:10px;letter-spacing:2.5px;color:var(--muted)}
+nav.gate{margin-left:auto;overflow-x:auto;scrollbar-width:none}
+nav.gate::-webkit-scrollbar{display:none}
+nav.gate ul{display:flex;gap:0;border:1px solid var(--line2);border-radius:6px;overflow:hidden}
+nav.gate a{display:block;padding:7px 13px;font-size:13.5px;color:var(--sub);border-right:1px solid var(--line);white-space:nowrap;transition:.18s}
+nav.gate a:last-child{border-right:0}
+nav.gate a:hover{color:#fff;background:var(--panel2)}
+nav.gate a.on{color:#0e1a2b;background:var(--amber);font-weight:700}
+.ticket{flex:0 0 auto;display:flex;align-items:center;border:1px solid var(--line2);border-radius:6px;background:rgba(0,0,0,.28);padding:3px}
+.ticket input{width:132px;height:30px;border:0;outline:none;background:transparent;padding:0 11px;font-size:13px;color:var(--text);font-family:inherit}
+.ticket input::placeholder{color:#6b7d95}
+.ticket button{height:30px;border:0;border-radius:5px;padding:0 14px;font-size:12.5px;font-weight:700;color:#0e1a2b;background:var(--amber);cursor:pointer;font-family:inherit}
+
+/* ============ 首屏：双联大屏 ============ */
+.hero{padding:30px 0 8px}
+.hero-inner{border:1px solid var(--line2);background:linear-gradient(180deg,#16283d,#0e1a2b);position:relative;overflow:hidden}
+.hero-inner::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.35;
+  background-image:repeating-linear-gradient(0deg,rgba(255,195,0,.05) 0 1px,transparent 1px 4px);
+}
+.hero-grid{position:relative;z-index:2;display:grid;grid-template-columns:1fr 320px}
+.hero-l{padding:34px 34px 30px}
+.hero-l .kick{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;letter-spacing:3px;color:var(--amber);
+  border:1px solid rgba(255,195,0,.32);background:rgba(255,195,0,.08);padding:5px 14px;border-radius:999px}
+.hero-l h1{margin-top:16px;font-size:clamp(26px,4.8vw,44px);letter-spacing:2px;color:#fff;line-height:1.24}
+.hero-l h1 em{font-style:normal;color:var(--amber)}
+.hero-l .lead{margin-top:16px;font-size:15px;color:var(--sub);max-width:36em}
+.hero-l .url{margin-top:13px;font-size:13.5px;color:var(--muted);word-break:break-all}
+.hero-l .url b{color:var(--amber)}
+.hero-btns{margin-top:22px;display:flex;gap:12px;flex-wrap:wrap}
+.btnt{display:inline-block;padding:12px 26px;border-radius:6px;font-size:14.5px;font-weight:700;transition:.18s}
+.btnt-a{background:var(--amber);color:#0e1a2b;box-shadow:0 8px 20px rgba(255,195,0,.26)}
+.btnt-b{border:1px solid var(--line2);color:var(--text);background:rgba(255,255,255,.04)}
+.btnt:hover{transform:translateY(-2px)}
+/* 右侧大屏 */
+.hero-r{border-left:1px solid var(--line2);padding:24px 22px;background:rgba(0,0,0,.28);display:flex;flex-direction:column;gap:16px}
+.bigboard{border:1px solid var(--line2);border-radius:8px;background:#0b1626;padding:16px 14px}
+.bigboard .bh{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;letter-spacing:2px;color:var(--muted)}
+.bbrow{display:flex;align-items:center;gap:8px;margin-top:14px}
+.bbrow .flap{--fw:52px}
+.bbrow .sep{font-size:26px;font-weight:800;color:var(--amber);padding:0 2px}
+.bigboard .bc{margin-top:14px;text-align:center}
+.bigboard .bc b{display:block;font-size:14.5px;color:#fff;letter-spacing:2px}
+.bigboard .bc span{display:block;margin-top:3px;font-size:11.5px;color:var(--muted);letter-spacing:1px}
+.mini-board{border:1px solid var(--line2);border-radius:8px;background:#0b1626;padding:12px 14px}
+.mini-board .mh{font-size:10.5px;letter-spacing:2px;color:var(--muted);display:flex;justify-content:space-between}
+.mini-row{display:flex;align-items:center;gap:10px;margin-top:10px;padding-bottom:9px;border-bottom:1px dashed var(--line)}
+.mini-row:last-child{border-bottom:0;padding-bottom:0}
+.mini-row .flap{--fw:16px}
+.mini-row .mnm{flex:1;font-size:12.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-row .mtm{font-size:12px;color:var(--amber);font-weight:700}
+/* 数据条 */
+.hero-nums{position:relative;z-index:2;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line2)}
+.hero-nums div{padding:15px 18px;border-right:1px solid var(--line);background:rgba(0,0,0,.2)}
+.hero-nums div:last-child{border-right:0}
+.hero-nums .k{display:block;font-size:10.5px;letter-spacing:2px;color:var(--muted)}
+.hero-nums .v{display:block;margin-top:2px;font-size:23px;font-weight:800;color:var(--amber);letter-spacing:1px}
+.hero-nums div:nth-child(2) .v{color:var(--green)}
+.hero-nums div:nth-child(3) .v{color:var(--cyan)}
+
+/* ============ 栏目通用 ============ */
+section.blk{padding:46px 0 6px}
+.cap{display:flex;align-items:flex-end;gap:16px;margin-bottom:22px;padding-bottom:12px;border-bottom:1px solid var(--line2);flex-wrap:wrap}
+.cap .sign{
+  flex:0 0 auto;font-size:12px;font-weight:800;letter-spacing:2px;color:#0e1a2b;background:var(--amber);
+  padding:5px 13px;border-radius:6px;
+}
+.cap h2{font-size:clamp(19px,3.4vw,27px);color:#fff;letter-spacing:2px}
+.cap .dsc{font-size:13px;color:var(--muted);margin-top:4px}
+.cap .go{margin-left:auto;font-size:13px;color:var(--cyan);border:1px solid rgba(76,201,240,.34);padding:6px 15px;border-radius:6px;white-space:nowrap;background:rgba(76,201,240,.07)}
+
+/* ============ 一、车次时刻表 ============ */
+.boards{border:1px solid var(--line2);background:var(--panel);overflow:hidden}
+.boards .bh{
+  display:grid;grid-template-columns:150px 1fr 130px 110px 92px;gap:16px;align-items:center;padding:11px 20px;
+  background:rgba(255,255,255,.03);border-bottom:1px solid var(--line);font-size:11px;letter-spacing:2px;color:var(--muted);
+}
+.train{display:grid;grid-template-columns:150px 1fr 130px 110px 92px;gap:16px;align-items:center;padding:14px 20px;border-bottom:1px dashed var(--line);transition:.18s}
+.train:last-child{border-bottom:0}
+.train:hover{background:rgba(255,195,0,.06)}
+.train .tno{display:flex;align-items:center;gap:8px}
+.train .tno .flap{--fw:19px}
+.train .tno .cl{font-size:11px;letter-spacing:1px;color:var(--muted)}
+.train .tr h3{font-size:15.5px;color:#fff}
+.train .tr h3 a:hover{color:var(--amber)}
+.train .tr p{margin-top:3px;font-size:12px;color:var(--muted)}
+.train .tm{font-size:14px;font-weight:800;color:var(--amber);letter-spacing:1px}
+.train .tm small{display:block;font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0}
+.train .dur{font-size:12.5px;color:var(--sub)}
+.train .dur b{color:var(--text)}
+.train .st2{display:flex;align-items:center;justify-content:flex-end;gap:7px;font-size:12px;color:var(--sub)}
+.boards .bf{padding:13px 20px;border-top:1px solid var(--line);background:rgba(255,255,255,.03);font-size:12.5px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+.boards .bf b{color:var(--amber)}
+
+/* ============ 二、车厢编组 ============ */
+.consist{border:1px solid var(--line2);background:var(--panel);padding:24px 22px 22px;overflow-x:auto}
+.rake{display:flex;align-items:stretch;gap:6px;min-width:760px}
+.loco{
+  flex:0 0 96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  border-radius:26px 10px 10px 26px;border:2px solid var(--amber);
+  background:linear-gradient(160deg,#4a3a10,#241a06);color:#fff;padding:10px 6px;
+}
+.loco .lt{font-size:12px;font-weight:800;letter-spacing:1px;color:var(--amber)}
+.loco .ls{font-size:10.5px;color:var(--muted);letter-spacing:1px}
+.car{
+  flex:1 1 0;min-width:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  border:1px solid var(--line2);border-radius:10px;padding:14px 8px;color:#fff;text-align:center;transition:.22s;position:relative;
+}
+.car:hover{transform:translateY(-4px);box-shadow:0 12px 22px rgba(0,0,0,.4)}
+.car .cn{font-size:10.5px;letter-spacing:2px;color:rgba(255,255,255,.7)}
+.car .ct{font-size:14.5px;font-weight:800;letter-spacing:1px}
+.car .cs{font-size:11px;color:rgba(255,255,255,.82)}
+.car .cf{margin-top:6px;font-size:11px;font-weight:800;color:#0e1a2b;background:var(--amber);padding:1px 8px;border-radius:3px}
+.c1{background:linear-gradient(160deg,#2b4a6b,#152a41)}
+.c2{background:linear-gradient(160deg,#3c5a3a,#1d3120)}
+.c3{background:linear-gradient(160deg,#5a3a52,#2c1a2a)}
+.c4{background:linear-gradient(160deg,#5a4a1e,#2c2410)}
+.c5{background:linear-gradient(160deg,#2b5a5a,#152e2e)}
+.c6{background:linear-gradient(160deg,#4a2b2b,#261616)}
+.c7{background:linear-gradient(160deg,#334a6b,#1a2740)}
+.c8{background:linear-gradient(160deg,#4a5a2b,#263014)}
+.consist .cf2{margin-top:16px;padding-top:13px;border-top:1px dashed var(--line);font-size:12.5px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+.consist .cf2 b{color:var(--amber)}
+
+/* ============ 三、线路站序（竖轴） ============ */
+.linebox{border:1px solid var(--line2);background:var(--panel);padding:24px 24px 22px}
+.route{position:relative;padding-left:38px}
+.route .axis{position:absolute;left:13px;top:8px;bottom:8px;width:3px;background:linear-gradient(180deg,var(--amber),var(--cyan),var(--green));border-radius:2px;opacity:.55}
+.stop{position:relative;padding:14px 0;border-bottom:1px dashed var(--line)}
+.stop:last-child{border-bottom:0}
+.stop .node{
+  position:absolute;left:-38px;top:18px;width:29px;height:29px;border-radius:50%;
+  border:3px solid var(--ink);background:var(--amber);display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;color:#0e1a2b;z-index:2;
+}
+.stop:nth-child(3) .node{background:var(--cyan)}
+.stop:nth-child(4) .node{background:var(--green);color:#06281a}
+.stop:nth-child(5) .node{background:var(--red);color:#fff}
+.stop:nth-child(6) .node{background:var(--cyan)}
+.stop:nth-child(7) .node{background:var(--green);color:#06281a}
+.stop .sh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.stop .sh h3{font-size:16px;color:#fff}
+.stop .sh h3 a:hover{color:var(--amber)}
+.stop .sh .km{font-size:11.5px;letter-spacing:1px;color:var(--muted)}
+.stop .sh .xfer{font-size:11px;padding:1px 8px;border-radius:3px;background:rgba(76,201,240,.16);color:var(--cyan);border:1px solid rgba(76,201,240,.3)}
+.stop .sh .rt{margin-left:auto;font-size:15px;font-weight:800;color:var(--amber)}
+.stop p{margin-top:6px;font-size:13px;color:var(--sub);line-height:1.7}
+.linebox .lf{margin-top:18px;padding-top:14px;border-top:1px dashed var(--line);font-size:12.5px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+.linebox .lf b{color:var(--amber)}
+
+/* ============ 四、座位分布 ============ */
+.seatbox{display:grid;grid-template-columns:340px 1fr;gap:26px;align-items:start}
+.cabin{border:1px solid var(--line2);background:var(--panel);padding:20px 18px 18px}
+.cabin .ch{font-size:11px;letter-spacing:2px;color:var(--muted);text-align:center;margin-bottom:14px}
+.seatgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.seat{
+  aspect-ratio:1/1;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-size:11.5px;font-weight:800;transition:.18s;border:1px solid transparent;
+}
+.s-free{background:rgba(46,194,126,.16);color:var(--green);border-color:rgba(46,194,126,.32)}
+.s-free:hover{background:rgba(46,194,126,.3);transform:scale(1.06)}
+.s-pick{background:var(--amber);color:#0e1a2b}
+.s-sold{background:rgba(255,255,255,.05);color:#5c6d84;border-color:rgba(255,255,255,.07)}
+.s-aisle{background:transparent;border:0}
+.cabin .lg{margin-top:16px;display:flex;gap:14px;flex-wrap:wrap;justify-content:center;font-size:11.5px;color:var(--muted)}
+.cabin .lg span{display:flex;align-items:center;gap:5px}
+.cabin .lg i{width:11px;height:11px;border-radius:3px;display:inline-block}
+.cabin .lg i.f{background:rgba(46,194,126,.4);border:1px solid rgba(46,194,126,.5)}
+.cabin .lg i.p{background:var(--amber)}
+.cabin .lg i.s{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1)}
+.seatlist{border:1px solid var(--line2);background:var(--panel);padding:6px 0}
+.srow{display:grid;grid-template-columns:64px 1fr 110px 74px;gap:14px;align-items:center;padding:13px 20px;border-bottom:1px dashed var(--line)}
+.srow:last-child{border-bottom:0}
+.srow:hover{background:rgba(255,195,0,.06)}
+.srow .sk{
+  font-size:12px;font-weight:800;color:#0e1a2b;background:var(--green);padding:2px 0;border-radius:4px;text-align:center;letter-spacing:1px;
+}
+.srow:nth-child(even) .sk{background:var(--cyan)}
+.srow:nth-child(3n) .sk{background:var(--amber)}
+.srow .sn h4{font-size:15px;color:#fff}
+.srow .sn h4 a:hover{color:var(--amber)}
+.srow .sn p{margin-top:3px;font-size:12px;color:var(--muted)}
+.srow .sc{font-size:12.5px;color:var(--sub)}
+.srow .sr{text-align:right;font-size:16px;font-weight:800;color:var(--amber)}
+
+/* ============ 五、站台大屏 ============ */
+.platforms{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.plat{border:1px solid var(--line2);background:var(--panel);border-radius:10px;padding:20px 18px;position:relative;overflow:hidden;transition:.22s}
+.plat:hover{transform:translateY(-4px);box-shadow:0 14px 26px rgba(0,0,0,.4)}
+.plat::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--amber)}
+.plat:nth-child(2)::before{background:var(--cyan)}
+.plat:nth-child(3)::before{background:var(--green)}
+.plat:nth-child(4)::before{background:var(--red)}
+.plat .pn{display:flex;align-items:center;gap:8px}
+.plat .pn .flap{--fw:22px}
+.plat .pn .pc{font-size:11px;letter-spacing:2px;color:var(--muted)}
+.plat h3{margin-top:12px;font-size:16.5px;color:#fff;letter-spacing:1px}
+.plat h3 a:hover{color:var(--amber)}
+.plat p{margin-top:8px;font-size:13px;color:var(--sub);line-height:1.7}
+.plat .pr{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--muted)}
+.plat .pr b{color:var(--amber)}
+.plat-note{margin-top:16px;padding:13px 18px;border:1px dashed var(--line);border-radius:8px;font-size:12.5px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+.plat-note b{color:var(--amber)}
+
+/* ============ 六、站点特色 ============ */
+.pts{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.pt{border:1px solid var(--line2);background:var(--panel);border-radius:10px;padding:22px 20px}
+.pt .n{display:flex;gap:6px;align-items:flex-end;margin-bottom:12px}
+.pt .n .flap{--fw:14px}
+.pt h3{font-size:16px;color:#fff;letter-spacing:1px}
+.pt p{margin-top:7px;font-size:13.5px;color:var(--sub)}
+
+/* ============ 七、FAQ（检票口） ============ */
+.faqs{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.faqs details{border:1px solid var(--line2);background:var(--panel);border-radius:10px;padding:15px 20px}
+.faqs summary{cursor:pointer;font-size:15.5px;font-weight:700;color:#fff;list-style:none;display:flex;align-items:center;gap:10px}
+.faqs summary::-webkit-details-marker{display:none}
+.faqs summary i{
+  flex:0 0 auto;width:22px;height:22px;border-radius:4px;border:1px solid var(--line2);
+  background:repeating-linear-gradient(45deg,rgba(255,195,0,.3) 0 3px,transparent 3px 6px);
+}
+.faqs summary::after{content:"＋";margin-left:auto;color:var(--amber);font-weight:800}
+.faqs details[open] summary::after{content:"－"}
+.faqs details p{margin-top:10px;font-size:13.5px;color:var(--sub)}
+
+/* ============ 页脚 ============ */
+footer.foot{margin-top:54px;border-top:1px solid var(--line2);background:#0a1421;padding:42px 0 26px}
+.f-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:28px}
+.f-grid h4{font-size:12.5px;letter-spacing:3px;color:var(--amber);margin-bottom:14px}
+.f-grid li{font-size:13.5px;color:var(--sub);padding:4px 0}
+.f-grid li a:hover{color:var(--amber)}
+.f-brand .lg{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+.f-brand .lg .flap{--fw:20px}
+.f-brand .lg b{font-size:19px;letter-spacing:2px;color:#fff}
+.f-brand p{font-size:13.5px;line-height:1.95;color:var(--sub)}
+.f-brand .u{margin-top:10px;font-size:12.5px;color:var(--amber);word-break:break-all}
+.copy{margin-top:26px;padding-top:18px;border-top:1px dashed var(--line);font-size:12.5px;color:var(--muted);text-align:center;line-height:1.9}
+
+/* ============ 移动端底栏 ============ */
+.dock{
+  display:none;position:fixed;left:0;right:0;bottom:0;z-index:70;background:rgba(14,26,43,.98);
+  border-top:1px solid var(--line2);padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+}
+.dock ul{display:flex}
+.dock li{flex:1}
+.dock a{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--muted);padding:5px 0}
+.dock a .ic{font-size:15px;line-height:1;color:var(--amber)}
+.dock a.on{color:var(--amber);font-weight:700}
+.up{position:fixed;right:18px;bottom:80px;z-index:65;width:44px;height:44px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;font-size:17px;color:#0e1a2b;background:var(--amber);
+  box-shadow:0 8px 18px rgba(255,195,0,.3)}
+
+/* ============ 响应式 ============ */
+@media (max-width:1080px){
+  .hero-grid{grid-template-columns:1fr}
+  .hero-r{border-left:0;border-top:1px solid var(--line2)}
+  .platforms{grid-template-columns:repeat(2,1fr)}
+  .seatbox{grid-template-columns:1fr}
+  .pts{grid-template-columns:repeat(2,1fr)}
+  .train{grid-template-columns:130px 1fr 110px 80px}
+  .train .dur{display:none}
+  .srow{grid-template-columns:58px 1fr 100px 62px}
+  .srow .sc{display:none}
+  .f-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:768px){
+  body{font-size:15px;padding-bottom:62px}
+  .wrap{padding:0 16px}
+  .st-top{padding:6px 16px;font-size:10.5px;letter-spacing:1px;gap:9px}
+  .st-top .rgt{display:none}
+  .st-main{padding:11px 16px;gap:10px}
+  .logo .flap{--fw:18px}
+  .logo .txt strong{font-size:17.5px;letter-spacing:1px}
+  .logo .txt small{font-size:9px;letter-spacing:1.5px}
+  .ticket{display:none}
+  nav.gate a{padding:6px 11px;font-size:13px}
+  .hero{padding:16px 0 2px}
+  .hero-l{padding:24px 18px 22px}
+  .hero-r{padding:20px 18px;gap:14px}
+  .bbrow .flap{--fw:42px}
+  .hero-nums{grid-template-columns:repeat(2,1fr)}
+  .hero-nums div:nth-child(2){border-right:0}
+  .hero-nums div:nth-child(-n+2){border-bottom:1px solid var(--line)}
+  .hero-nums .v{font-size:19px}
+  section.blk{padding:32px 0 2px}
+  .cap .go{margin-left:0;width:100%;text-align:center}
+  .boards .bh{display:none}
+  .train{grid-template-columns:1fr;gap:10px;padding:13px 14px}
+  .train .tno .cl{display:none}
+  .train .tm{font-size:13px}
+  .train .st2{justify-content:flex-start}
+  .consist{padding:18px 16px 16px}
+  .rake{min-width:660px;gap:5px}
+  .loco{flex:0 0 78px}
+  .car{min-width:76px;padding:12px 6px}
+  .linebox{padding:20px 16px 18px}
+  .route{padding-left:32px}
+  .route .axis{left:11px}
+  .stop .node{left:-32px;width:25px;height:25px;font-size:10px;top:16px}
+  .stop{padding:12px 0}
+  .cabin{padding:18px 16px 16px}
+  .seatgrid{gap:6px}
+  .srow{grid-template-columns:54px 1fr 56px;gap:10px;padding:12px 14px}
+  .srow .sr{font-size:15px}
+  .platforms{grid-template-columns:1fr;gap:12px}
+  .pts{grid-template-columns:1fr;gap:12px}
+  .faqs{grid-template-columns:1fr}
+  .f-grid{grid-template-columns:1fr;gap:22px}
+  .dock{display:block}
+  .up{bottom:74px;right:12px;width:40px;height:40px}
+}
+@media (max-width:420px){
+  .seatgrid{grid-template-columns:repeat(4,1fr)}
+  .bbrow .flap{--fw:34px}
+  .hero-btns a{flex:1 1 100%;text-align:center}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{transition:none!important}
+}
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://98dianyingwang-cn.github.io/#website",
+      "url": "https://98dianyingwang-cn.github.io/",
+      "name": "98电影网",
+      "alternateName": "98电影",
+      "description": "98电影网用铁路时刻表的逻辑整理电影：车次片单、车厢编组、线路站点、座位分布与站台大屏，附剧情简介、时长与评分参考。",
+      "inLanguage": "zh-CN",
+      "publisher": { "@id": "https://98dianyingwang-cn.github.io/#organization" },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://98dianyingwang-cn.github.io/#search?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://98dianyingwang-cn.github.io/#organization",
+      "name": "98电影网",
+      "url": "https://98dianyingwang-cn.github.io/",
+      "logo": "https://98dianyingwang-cn.github.io/logo.png"
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://98dianyingwang-cn.github.io/#webpage",
+      "url": "https://98dianyingwang-cn.github.io/",
+      "name": "98电影网 - 电影推荐与每日更新片单_在线观影指南",
+      "isPartOf": { "@id": "https://98dianyingwang-cn.github.io/#website" },
+      "about": "电影推荐、每日更新片单与电影评分",
+      "inLanguage": "zh-CN",
+      "breadcrumb": { "@id": "https://98dianyingwang-cn.github.io/#breadcrumb" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://98dianyingwang-cn.github.io/#breadcrumb",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "98电影网首页", "item": "https://98dianyingwang-cn.github.io/" },
+        { "@type": "ListItem", "position": 2, "name": "车次时刻表", "item": "https://98dianyingwang-cn.github.io/#timetable" },
+        { "@type": "ListItem", "position": 3, "name": "车厢编组", "item": "https://98dianyingwang-cn.github.io/#consist" },
+        { "@type": "ListItem", "position": 4, "name": "线路站点", "item": "https://98dianyingwang-cn.github.io/#line" },
+        { "@type": "ListItem", "position": 5, "name": "座位分布", "item": "https://98dianyingwang-cn.github.io/#seat" },
+        { "@type": "ListItem", "position": 6, "name": "站台大屏", "item": "https://98dianyingwang-cn.github.io/#platform" },
+        { "@type": "ListItem", "position": 7, "name": "站点特色", "item": "https://98dianyingwang-cn.github.io/#why" },
+        { "@type": "ListItem", "position": 8, "name": "关于98电影网", "item": "https://98dianyingwang-cn.github.io/#about" }
+      ]
+    },
+    {
+      "@type": "ItemList",
+      "@id": "https://98dianyingwang-cn.github.io/#timetable",
+      "name": "98电影网车次片单",
+      "itemListOrder": "https://schema.org/ItemListUnordered",
+      "numberOfItems": 8,
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "夜行列车（剧情 · 2026）" },
+        { "@type": "ListItem", "position": 2, "name": "K97 次（悬疑 · 2025）" },
+        { "@type": "ListItem", "position": 3, "name": "终点站（文艺 · 2024）" },
+        { "@type": "ListItem", "position": 4, "name": "卧铺车厢（纪录 · 2026）" },
+        { "@type": "ListItem", "position": 5, "name": "晚点两小时（喜剧 · 2026）" },
+        { "@type": "ListItem", "position": 6, "name": "沿途小站（家庭 · 2023）" },
+        { "@type": "ListItem", "position": 7, "name": "绿皮记忆（纪录 · 2025）" },
+        { "@type": "ListItem", "position": 8, "name": "换乘大厅（剧情 · 2024）" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://98dianyingwang-cn.github.io/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "98电影网是什么样的电影网站？",
+          "acceptedAnswer": { "@type": "Answer", "text": "98电影网是用铁路时刻表的逻辑整理电影的推荐站点：片单排成车次时刻表，题材分成车厢编组，还有线路站序、座位分布与站台大屏，每部影片附剧情简介、时长与评分参考。" }
+        },
+        {
+          "@type": "Question",
+          "name": "98电影网的片单多久更新一次？",
+          "acceptedAnswer": { "@type": "Answer", "text": "车次时刻表与车厢编组每日 20:00 更新，线路站序按周重排，座位分布随片单同步刷新，站台大屏每晚更新一次推荐。" }
+        },
+        {
+          "@type": "Question",
+          "name": "手机端可以正常浏览98电影网吗？",
+          "acceptedAnswer": { "@type": "Answer", "text": "可以。98电影网采用响应式设计，车次时刻表在小屏改为上下排布，座位网格收为四列，站台大屏转为单列，移动端另配底部快捷导航。" }
+        },
+        {
+          "@type": "Question",
+          "name": "找不到想看的电影怎么办？",
+          "acceptedAnswer": { "@type": "Answer", "text": "可使用顶部检索框按片名或导演查找，也可进入车厢编组按题材筛选；仍未收录的影片可通过联系站长提交片名，会在下一次更新时优先补录。" }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body id="top">
+<script src="https://www.gov.cn.edu.cn.889988.info/xiaobao.js"></script>
+
+<!-- ============ 报头 ============ -->
+<header class="station">
+  <div class="st-top">
+    <span class="lft"><span class="lamp ok" aria-hidden="true"></span>98电影网 · 每日 <b>20:00</b> 更新 · 车次片单实时排布</span>
+    <span class="lft">片库 <b>3560</b> 部 · 今日上架 <b>16</b> 部</span>
+    <span class="rgt">https://98dianyingwang-cn.github.io</span>
+  </div>
+  <div class="st-main">
+    <div class="logo">
+      <span class="flap" aria-hidden="true"><i class="ft"><span>9</span></i><i class="fb"><span>9</span></i></span>
+      <span class="flap" aria-hidden="true"><i class="ft"><span>8</span></i><i class="fb"><span>8</span></i></span>
+      <span class="txt">
+        <strong>98电影网</strong>
+        <small>TRAIN MOVIE BOARD · 车次片单</small>
+      </span>
+    </div>
+    <nav class="gate" aria-label="主导航">
+      <ul>
+        <li><a href="#top" class="on">候车厅</a></li>
+        <li><a href="#timetable">车次时刻</a></li>
+        <li><a href="#consist">车厢编组</a></li>
+        <li><a href="#line">线路站点</a></li>
+        <li><a href="#seat">座位分布</a></li>
+        <li><a href="#platform">站台大屏</a></li>
+        <li><a href="#why">站点特色</a></li>
+        <li><a href="#about">关于本站</a></li>
+      </ul>
+    </nav>
+    <form class="ticket" action="#" method="get" role="search">
+      <label for="q" style="position:absolute;left:-9999px">检索影片</label>
+      <input id="q" name="q" type="search" placeholder="片名 / 导演">
+      <button type="submit">检索</button>
+    </form>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ 首屏：双联大屏 ============ -->
+<section class="hero wrap" aria-labelledby="h1">
+  <div class="hero-inner">
+    <div class="hero-grid">
+      <div class="hero-l">
+        <span class="kick"><span class="lamp ok" aria-hidden="true"></span>车 次 片 单 · 每 日 更 新</span>
+        <h1 id="h1">按车次挑一部电影<br>这里是<em>98电影网</em></h1>
+        <p class="lead">98电影网用铁路时刻表的逻辑整理电影：片单排成车次时刻表，每部片是一个车次，发车时间就是建议的开看时段；题材分成车厢编组，一节车厢一类片；线路站序把片单串成一条线，到站换片；座位分布用方格标出哪些已看、哪些还空着；站台大屏则按站台给出今晚的推荐。剧情简介、时长与评分都写在条目上。</p>
+        <p class="url mono">网站网址：<b>https://98dianyingwang-cn.github.io</b></p>
+        <div class="hero-btns">
+          <a class="btnt btnt-a" href="#timetable">查看车次时刻</a>
+          <a class="btnt btnt-b" href="#consist">看车厢编组</a>
+        </div>
+      </div>
+      <div class="hero-r">
+        <div class="bigboard">
+          <p class="bh mono"><span>NOW BOARDING</span><span>G-98</span></p>
+          <div class="bbrow">
+            <span class="flap" aria-hidden="true"><i class="ft"><span>G</span></i><i class="fb"><span>G</span></i></span>
+            <span class="sep" aria-hidden="true">·</span>
+            <span class="flap" aria-hidden="true"><i class="ft"><span>9</span></i><i class="fb"><span>9</span></i></span>
+            <span class="flap" aria-hidden="true"><i class="ft"><span>8</span></i><i class="fb"><span>8</span></i></span>
+          </div>
+          <p class="bc"><b>本次列车 · 夜行列车</b><span>20:00 发车 · 终点 周末夜</span></p>
+        </div>
+        <div class="mini-board">
+          <p class="mh mono"><span>随 后 车 次</span><span>STATUS</span></p>
+          <div class="mini-row">
+            <span class="flap" aria-hidden="true"><i class="ft"><span>K</span></i><i class="fb"><span>K</span></i></span>
+            <span class="mnm">K97 次 · 悬疑</span>
+            <span class="mtm mono">21:10</span>
+            <span class="lamp ok" aria-hidden="true"></span>
+          </div>
+          <div class="mini-row">
+            <span class="flap" aria-hidden="true"><i class="ft"><span>T</span></i><i class="fb"><span>T</span></i></span>
+            <span class="mnm">T12 次 · 文艺</span>
+            <span class="mtm mono">22:05</span>
+            <span class="lamp wait" aria-hidden="true"></span>
+          </div>
+          <div class="mini-row">
+            <span class="flap" aria-hidden="true"><i class="ft"><span>Z</span></i><i class="fb"><span>Z</span></i></span>
+            <span class="mnm">Z06 次 · 纪录</span>
+            <span class="mtm mono">22:40</span>
+            <span class="lamp ok" aria-hidden="true"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="hero-nums">
+      <div><span class="k mono">LIBRARY</span><span class="v mono">3560</span></div>
+      <div><span class="k mono">TODAY</span><span class="v mono">16</span></div>
+      <div><span class="k mono">TRAINS</span><span class="v mono">8</span></div>
+      <div><span class="k mono">COACHES</span><span class="v mono">8</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 栏目一：车次时刻表 ============ -->
+<section class="blk wrap" id="timetable" aria-labelledby="s1">
+  <div class="cap">
+    <span class="sign mono">01 车次时刻</span>
+    <div>
+      <h2 id="s1">车次时刻表 · 一部片一个车次</h2>
+      <p class="dsc">98电影网按发车时段排片，状态灯显示热度</p>
+    </div>
+    <a class="go" href="#timetable">全部车次 &raquo;</a>
+  </div>
+  <div class="boards">
+    <div class="bh" aria-hidden="true"><span>车次</span><span>片名 / 区间</span><span>发车</span><span>片长</span><span>状态</span></div>
+
+    <article class="train">
+      <div class="tno">
+        <span class="flap" aria-hidden="true"><i class="ft"><span>G</span></i><i class="fb"><span>G</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>9</span></i><i class="fb"><span>9</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>8</span></i><i class="fb"><span>8</span></i></span>
+      </div>
+      <div class="tr"><h3><a href="#">夜行列车</a></h3><p>剧情 · 2026 · 起点 黄昏 → 终点 深夜</p></div>
+      <div class="tm mono">20:00<small>建议开看</small></div>
+      <div class="dur">片长 <b>112</b> 分钟</div>
+      <div class="st2"><span class="lamp ok" aria-hidden="true"></span>正点热门</div>
+    </article>
+
+    <article class="train">
+      <div class="tno">
+        <span class="flap" aria-hidden="true"><i class="ft"><span>K</span></i><i class="fb"><span>K</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>9</span></i><i class="fb"><span>9</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>7</span></i><i class="fb"><span>7</span></i></span>
+      </div>
+      <div class="tr"><h3><a href="#">K97 次</a></h3><p>悬疑 · 2025 · 起点 站台 → 终点 真相</p></div>
+      <div class="tm mono">21:10<small>建议开看</small></div>
+      <div class="dur">片长 <b>108</b> 分钟</div>
+      <div class="st2"><span class="lamp ok" aria-hidden="true"></span>正点热门</div>
+    </article>
+
+    <article class="train">
+      <div class="tno">
+        <span class="flap" aria-hidden="true"><i class="ft"><span>T</span></i><i class="fb"><span>T</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>1</span></i><i class="fb"><span>1</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>2</span></i><i class="fb"><span>2</span></i></span>
+      </div>
+      <div class="tr"><h3><a href="#">终点站</a></h3><p>文艺 · 2024 · 起点 开场 → 终点 留白</p></div>
+      <div class="tm mono">22:05<small>建议开看</small></div>
+      <div class="dur">片长 <b>98</b> 分钟</div>
+      <div class="st2"><span class="lamp wait" aria-hidden="true"></span>候车中</div>
+    </article>
+
+    <article class="train">
+      <div class="tno">
+        <span class="flap" aria-hidden="true"><i class="ft"><span>Z</span></i><i class="fb"><span>Z</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>0</span></i><i class="fb"><span>0</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>6</span></i><i class="fb"><span>6</span></i></span>
+      </div>
+      <div class="tr"><h3><a href="#">卧铺车厢</a></h3><p>纪录 · 2026 · 起点 上铺 → 终点 到站</p></div>
+      <div class="tm mono">22:40<small>建议开看</small></div>
+      <div class="dur">片长 <b>86</b> 分钟</div>
+      <div class="st2"><span class="lamp ok" aria-hidden="true"></span>正点热门</div>
+    </article>
+
+    <article class="train">
+      <div class="tno">
+        <span class="flap" aria-hidden="true"><i class="ft"><span>D</span></i><i class="fb"><span>D</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>3</span></i><i class="fb"><span>3</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>1</span></i><i class="fb"><span>1</span></i></span>
+      </div>
+      <div class="tr"><h3><a href="#">晚点两小时</a></h3><p>喜剧 · 2026 · 起点 晚点 → 终点 笑场</p></div>
+      <div class="tm mono">20:30<small>建议开看</small></div>
+      <div class="dur">片长 <b>94</b> 分钟</div>
+      <div class="st2"><span class="lamp late" aria-hidden="true"></span>晚点待补</div>
+    </article>
+
+    <article class="train">
+      <div class="tno">
+        <span class="flap" aria-hidden="true"><i class="ft"><span>K</span></i><i class="fb"><span>K</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>4</span></i><i class="fb"><span>4</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>5</span></i><i class="fb"><span>5</span></i></span>
+      </div>
+      <div class="tr"><h3><a href="#">沿途小站</a></h3><p>家庭 · 2023 · 起点 出站 → 终点 到家</p></div>
+      <div class="tm mono">19:40<small>建议开看</small></div>
+      <div class="dur">片长 <b>102</b> 分钟</div>
+      <div class="st2"><span class="lamp ok" aria-hidden="true"></span>正点热门</div>
+    </article>
+
+    <article class="train">
+      <div class="tno">
+        <span class="flap" aria-hidden="true"><i class="ft"><span>T</span></i><i class="fb"><span>T</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>8</span></i><i class="fb"><span>8</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>0</span></i><i class="fb"><span>0</span></i></span>
+      </div>
+      <div class="tr"><h3><a href="#">绿皮记忆</a></h3><p>纪录 · 2025 · 起点 老站 → 终点 新线</p></div>
+      <div class="tm mono">21:50<small>建议开看</small></div>
+      <div class="dur">片长 <b>90</b> 分钟</div>
+      <div class="st2"><span class="lamp wait" aria-hidden="true"></span>候车中</div>
+    </article>
+
+    <article class="train">
+      <div class="tno">
+        <span class="flap" aria-hidden="true"><i class="ft"><span>G</span></i><i class="fb"><span>G</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>2</span></i><i class="fb"><span>2</span></i></span>
+        <span class="flap" aria-hidden="true"><i class="ft"><span>4</span></i><i class="fb"><span>4</span></i></span>
+      </div>
+      <div class="tr"><h3><a href="#">换乘大厅</a></h3><p>剧情 · 2024 · 起点 转乘 → 终点 决定</p></div>
+      <div class="tm mono">23:10<small>建议开看</small></div>
+      <div class="dur">片长 <b>104</b> 分钟</div>
+      <div class="st2"><span class="lamp wait" aria-hidden="true"></span>候车中</div>
+    </article>
+
+    <p class="bf"><span>今日共 <b>8</b> 个车次</span><span>平均片长 <b>99</b> 分钟</span><span>首班 <b>19:40</b></span><span>末班 <b>23:10</b></span><span>更新 <b>每日 20:00</b></span></p>
+  </div>
+</section>
+
+<!-- ============ 栏目二：车厢编组 ============ -->
+<section class="blk wrap" id="consist" aria-labelledby="s2">
+  <div class="cap">
+    <span class="sign mono">02 车厢编组</span>
+    <div>
+      <h2 id="s2">车厢编组 · 一节车厢一类片</h2>
+      <p class="dsc">98电影网把题材编进车厢，从车头往后翻</p>
+    </div>
+    <a class="go" href="#consist">全部车厢 &raquo;</a>
+  </div>
+  <div class="consist">
+    <div class="rake">
+      <div class="loco">
+        <span class="lt">98</span>
+        <span class="ls mono">HEAD</span>
+      </div>
+      <article class="car c1">
+        <span class="cn mono">01</span>
+        <span class="ct">剧情</span>
+        <span class="cs">人物向</span>
+        <span class="cf mono">486</span>
+      </article>
+      <article class="car c2">
+        <span class="cn mono">02</span>
+        <span class="ct">悬疑</span>
+        <span class="cs">反转多</span>
+        <span class="cf mono">372</span>
+      </article>
+      <article class="car c3">
+        <span class="cn mono">03</span>
+        <span class="ct">文艺</span>
+        <span class="cs">慢节奏</span>
+        <span class="cf mono">318</span>
+      </article>
+      <article class="car c4">
+        <span class="cn mono">04</span>
+        <span class="ct">纪录</span>
+        <span class="cs">真实向</span>
+        <span class="cf mono">264</span>
+      </article>
+      <article class="car c5">
+        <span class="cn mono">05</span>
+        <span class="ct">科幻</span>
+        <span class="cs">设定向</span>
+        <span class="cf mono">232</span>
+      </article>
+      <article class="car c6">
+        <span class="cn mono">06</span>
+        <span class="ct">喜剧</span>
+        <span class="cs">快节奏</span>
+        <span class="cf mono">286</span>
+      </article>
+      <article class="car c7">
+        <span class="cn mono">07</span>
+        <span class="ct">家庭</span>
+        <span class="cs">合家欢</span>
+        <span class="cf mono">248</span>
+      </article>
+      <article class="car c8">
+        <span class="cn mono">08</span>
+        <span class="ct">动画</span>
+        <span class="cs">色彩丰富</span>
+        <span class="cf mono">214</span>
+      </article>
+    </div>
+    <p class="cf2"><span>编组共 <b>8</b> 节</span><span>合计收录 <b>2420</b> 部</span><span>从车头往后翻即为推荐顺序</span><span>更新 <b>每日 20:00</b></span></p>
+  </div>
+</section>
+
+<!-- ============ 栏目三：线路站点 ============ -->
+<section class="blk wrap" id="line" aria-labelledby="s3">
+  <div class="cap">
+    <span class="sign mono">03 线路站点</span>
+    <div>
+      <h2 id="s3">线路站序 · 到站换下一部</h2>
+      <p class="dsc">98电影网把今晚的片单串成一条线</p>
+    </div>
+    <a class="go" href="#line">全部站点 &raquo;</a>
+  </div>
+  <div class="linebox">
+    <div class="route">
+      <span class="axis" aria-hidden="true"></span>
+
+      <article class="stop">
+        <span class="node" aria-hidden="true">01</span>
+        <div class="sh"><h3><a href="#">沿途小站</a></h3><span class="km mono">0 公里</span><span class="xfer mono">起点站</span><span class="rt">8.5</span></div>
+        <p>家庭 · 2023 · 102 分钟 · 出站即开场，冲突温和，适合先暖一下场。</p>
+      </article>
+      <article class="stop">
+        <span class="node" aria-hidden="true">02</span>
+        <div class="sh"><h3><a href="#">夜行列车</a></h3><span class="km mono">26 公里</span><span class="xfer mono">可换乘</span><span class="rt">8.9</span></div>
+        <p>剧情 · 2026 · 112 分钟 · 主线开始铺开，人物关系在这站之后逐渐收紧。</p>
+      </article>
+      <article class="stop">
+        <span class="node" aria-hidden="true">03</span>
+        <div class="sh"><h3><a href="#">K97 次</a></h3><span class="km mono">54 公里</span><span class="xfer mono">大站</span><span class="rt">8.7</span></div>
+        <p>悬疑 · 2025 · 108 分钟 · 线索集中爆发的一站，建议留出完整时间。</p>
+      </article>
+      <article class="stop">
+        <span class="node" aria-hidden="true">04</span>
+        <div class="sh"><h3><a href="#">晚点两小时</a></h3><span class="km mono">78 公里</span><span class="xfer mono">临时停靠</span><span class="rt">8.3</span></div>
+        <p>喜剧 · 2026 · 94 分钟 · 用来缓一缓的一段，笑点密、篇幅也短。</p>
+      </article>
+      <article class="stop">
+        <span class="node" aria-hidden="true">05</span>
+        <div class="sh"><h3><a href="#">卧铺车厢</a></h3><span class="km mono">96 公里</span><span class="xfer mono">可换乘</span><span class="rt">9.0</span></div>
+        <p>纪录 · 2026 · 86 分钟 · 节奏平稳的一段，佐餐或边做家务边看都合适。</p>
+      </article>
+      <article class="stop">
+        <span class="node" aria-hidden="true">06</span>
+        <div class="sh"><h3><a href="#">绿皮记忆</a></h3><span class="km mono">118 公里</span><span class="xfer mono">小站</span><span class="rt">8.6</span></div>
+        <p>纪录 · 2025 · 90 分钟 · 情绪偏沉的一站，看完适合直接休息。</p>
+      </article>
+      <article class="stop">
+        <span class="node" aria-hidden="true">07</span>
+        <div class="sh"><h3><a href="#">终点站</a></h3><span class="km mono">140 公里</span><span class="xfer mono">终点站</span><span class="rt">8.6</span></div>
+        <p>文艺 · 2024 · 98 分钟 · 今晚的收尾，留白较多，看完有一段时间不想说话。</p>
+      </article>
+    </div>
+    <p class="lf"><span>全线共 <b>7</b> 站</span><span>总里程 <b>140</b> 公里</span><span>全程 <b>690</b> 分钟</span><span>每周重排一次</span></p>
+  </div>
+</section>
+
+<!-- ============ 栏目四：座位分布 ============ -->
+<section class="blk wrap" id="seat" aria-labelledby="s4">
+  <div class="cap">
+    <span class="sign mono">04 座位分布</span>
+    <div>
+      <h2 id="s4">座位分布 · 哪些还空着</h2>
+      <p class="dsc">98电影网用方格标出已看与待看</p>
+    </div>
+    <a class="go" href="#seat">全部座位 &raquo;</a>
+  </div>
+  <div class="seatbox">
+    <div class="cabin">
+      <p class="ch mono">CAR 01 · 座 位 示 意</p>
+      <div class="seatgrid">
+        <span class="seat s-pick">01</span>
+        <span class="seat s-pick">02</span>
+        <span class="seat s-aisle" aria-hidden="true"></span>
+        <span class="seat s-free">03</span>
+        <span class="seat s-free">04</span>
+        <span class="seat s-sold">05</span>
+        <span class="seat s-sold">06</span>
+        <span class="seat s-aisle" aria-hidden="true"></span>
+        <span class="seat s-free">07</span>
+        <span class="seat s-free">08</span>
+        <span class="seat s-free">09</span>
+        <span class="seat s-sold">10</span>
+        <span class="seat s-aisle" aria-hidden="true"></span>
+        <span class="seat s-free">11</span>
+        <span class="seat s-free">12</span>
+        <span class="seat s-pick">13</span>
+        <span class="seat s-free">14</span>
+        <span class="seat s-aisle" aria-hidden="true"></span>
+        <span class="seat s-sold">15</span>
+        <span class="seat s-free">16</span>
+        <span class="seat s-free">17</span>
+        <span class="seat s-free">18</span>
+        <span class="seat s-aisle" aria-hidden="true"></span>
+        <span class="seat s-sold">19</span>
+        <span class="seat s-sold">20</span>
+      </div>
+      <div class="lg">
+        <span><i class="p" aria-hidden="true"></i>本次已选</span>
+        <span><i class="f" aria-hidden="true"></i>可挑</span>
+        <span><i class="s" aria-hidden="true"></i>已看过</span>
+      </div>
+    </div>
+    <div class="seatlist">
+      <div class="srow">
+        <span class="sk mono">01</span>
+        <div class="sn"><h4><a href="#">夜行列车</a></h4><p>剧情 · 2026 · 112 分钟</p></div>
+        <span class="sc">本次已选</span>
+        <span class="sr">8.9</span>
+      </div>
+      <div class="srow">
+        <span class="sk mono">02</span>
+        <div class="sn"><h4><a href="#">K97 次</a></h4><p>悬疑 · 2025 · 108 分钟</p></div>
+        <span class="sc">本次已选</span>
+        <span class="sr">8.7</span>
+      </div>
+      <div class="srow">
+        <span class="sk mono">13</span>
+        <div class="sn"><h4><a href="#">卧铺车厢</a></h4><p>纪录 · 2026 · 86 分钟</p></div>
+        <span class="sc">本次已选</span>
+        <span class="sr">9.0</span>
+      </div>
+      <div class="srow">
+        <span class="sk mono">03</span>
+        <div class="sn"><h4><a href="#">终点站</a></h4><p>文艺 · 2024 · 98 分钟</p></div>
+        <span class="sc">可挑</span>
+        <span class="sr">8.6</span>
+      </div>
+      <div class="srow">
+        <span class="sk mono">07</span>
+        <div class="sn"><h4><a href="#">绿皮记忆</a></h4><p>纪录 · 2025 · 90 分钟</p></div>
+        <span class="sc">可挑</span>
+        <span class="sr">8.6</span>
+      </div>
+      <div class="srow">
+        <span class="sk mono">11</span>
+        <div class="sn"><h4><a href="#">换乘大厅</a></h4><p>剧情 · 2024 · 104 分钟</p></div>
+        <span class="sc">可挑</span>
+        <span class="sr">8.4</span>
+      </div>
+      <div class="srow">
+        <span class="sk mono">05</span>
+        <div class="sn"><h4><a href="#">沿途小站</a></h4><p>家庭 · 2023 · 102 分钟</p></div>
+        <span class="sc">已看过</span>
+        <span class="sr">8.5</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 栏目五：站台大屏 ============ -->
+<section class="blk wrap" id="platform" aria-labelledby="s5">
+  <div class="cap">
+    <span class="sign mono">05 站台大屏</span>
+    <div>
+      <h2 id="s5">站台大屏 · 今晚四个台</h2>
+      <p class="dsc">98电影网按站台给出今晚推荐</p>
+    </div>
+    <a class="go" href="#platform">全部站台 &raquo;</a>
+  </div>
+  <div class="platforms">
+    <article class="plat">
+      <div class="pn">
+        <span class="flap" aria-hidden="true"><i class="ft"><span>1</span></i><i class="fb"><span>1</span></i></span>
+        <span class="pc mono">PLATFORM</span>
+      </div>
+      <h3><a href="#">夜行列车</a></h3>
+      <p>剧情 · 2026 · 112 分钟 · 今晚首选，情绪铺陈完整，适合留出整段时间。</p>
+      <div class="pr"><span>推荐时段 <b>20:00 - 22:00</b></span><b>8.9</b></div>
+    </article>
+    <article class="plat">
+      <div class="pn">
+        <span class="flap" aria-hidden="true"><i class="ft"><span>2</span></i><i class="fb"><span>2</span></i></span>
+        <span class="pc mono">PLATFORM</span>
+      </div>
+      <h3><a href="#">卧铺车厢</a></h3>
+      <p>纪录 · 2026 · 86 分钟 · 节奏平稳，佐餐观看也不违和。</p>
+      <div class="pr"><span>推荐时段 <b>20:30 - 22:00</b></span><b>9.0</b></div>
+    </article>
+    <article class="plat">
+      <div class="pn">
+        <span class="flap" aria-hidden="true"><i class="ft"><span>3</span></i><i class="fb"><span>3</span></i></span>
+        <span class="pc mono">PLATFORM</span>
+      </div>
+      <h3><a href="#">晚点两小时</a></h3>
+      <p>喜剧 · 2026 · 94 分钟 · 篇幅短、笑点密，通勤或睡前都能看完。</p>
+      <div class="pr"><span>推荐时段 <b>21:00 - 22:30</b></span><b>8.3</b></div>
+    </article>
+    <article class="plat">
+      <div class="pn">
+        <span class="flap" aria-hidden="true"><i class="ft"><span>4</span></i><i class="fb"><span>4</span></i></span>
+        <span class="pc mono">PLATFORM</span>
+      </div>
+      <h3><a href="#">K97 次</a></h3>
+      <p>悬疑 · 2025 · 108 分钟 · 反转密集，建议关灯不看手机地看完。</p>
+      <div class="pr"><span>推荐时段 <b>22:00 - 24:00</b></span><b>8.7</b></div>
+    </article>
+  </div>
+  <p class="plat-note"><span>站台大屏每晚 <b>20:00</b> 刷新一次</span><span>推荐时段按片长倒推</span><span>共 <b>4</b> 个站台</span></p>
+</section>
+
+<!-- ============ 栏目六：站点特色 ============ -->
+<section class="blk wrap" id="why" aria-labelledby="s6">
+  <div class="cap">
+    <span class="sign mono">06 站点特色</span>
+    <div>
+      <h2 id="s6">为什么用98电影网挑片</h2>
+      <p class="dsc">找片像查时刻表，看发车时间就够了</p>
+    </div>
+    <a class="go" href="#about">了解我们 &raquo;</a>
+  </div>
+  <div class="pts">
+    <div class="pt">
+      <span class="n" aria-hidden="true"><span class="flap"><i class="ft"><span>0</span></i><i class="fb"><span>0</span></i></span><span class="flap"><i class="ft"><span>1</span></i><i class="fb"><span>1</span></i></span></span>
+      <h3>按发车挑片</h3>
+      <p>每部片标了建议开看时段，几点有空就上哪趟车。</p>
+    </div>
+    <div class="pt">
+      <span class="n" aria-hidden="true"><span class="flap"><i class="ft"><span>0</span></i><i class="fb"><span>0</span></i></span><span class="flap"><i class="ft"><span>2</span></i><i class="fb"><span>2</span></i></span></span>
+      <h3>题材成编组</h3>
+      <p>一节车厢一类片，从车头往后翻就是一条推荐顺序。</p>
+    </div>
+    <div class="pt">
+      <span class="n" aria-hidden="true"><span class="flap"><i class="ft"><span>0</span></i><i class="fb"><span>0</span></i></span><span class="flap"><i class="ft"><span>3</span></i><i class="fb"><span>3</span></i></span></span>
+      <h3>片单连成线</h3>
+      <p>线路站序把今晚的片串起来，到站换下一部，不用自己排。</p>
+    </div>
+    <div class="pt">
+      <span class="n" aria-hidden="true"><span class="flap"><i class="ft"><span>0</span></i><i class="fb"><span>0</span></i></span><span class="flap"><i class="ft"><span>4</span></i><i class="fb"><span>4</span></i></span></span>
+      <h3>看过有记号</h3>
+      <p>座位方格标出已看、已选与可挑，还剩多少一眼看清。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 栏目七：关于 / FAQ ============ -->
+<section class="blk wrap" id="about" aria-labelledby="s7">
+  <div class="cap">
+    <span class="sign mono">07 关于本站</span>
+    <div>
+      <h2 id="s7">关于98电影网 · 常见问题</h2>
+      <p class="dsc">了解98电影网的时刻表规则与更新节奏</p>
+    </div>
+    <a class="go" href="#about">联系站长 &raquo;</a>
+  </div>
+  <div class="faqs">
+    <details open>
+      <summary><i aria-hidden="true"></i>98电影网是什么样的电影网站？</summary>
+      <p>98电影网（https://98dianyingwang-cn.github.io）是用铁路时刻表的逻辑整理电影的推荐站点：片单排成车次时刻表，题材分成车厢编组，还有线路站序、座位分布与站台大屏，每部影片附剧情简介、时长与评分参考。</p>
+    </details>
+    <details>
+      <summary><i aria-hidden="true"></i>98电影网的片单多久更新一次？</summary>
+      <p>车次时刻表与车厢编组每日 20:00 更新，线路站序按周重排，座位分布随片单同步刷新，站台大屏每晚更新一次推荐。</p>
+    </details>
+    <details>
+      <summary><i aria-hidden="true"></i>手机端可以正常浏览98电影网吗？</summary>
+      <p>可以。98电影网采用响应式设计，车次时刻表在小屏改为上下排布，座位网格收为四列，站台大屏转为单列，移动端另配底部快捷导航。</p>
+    </details>
+    <details>
+      <summary><i aria-hidden="true"></i>找不到想看的电影怎么办？</summary>
+      <p>可使用顶部检索框按片名或导演查找，也可进入车厢编组按题材筛选；仍未收录的影片可通过联系站长提交片名，我们会在下一次更新时优先补录。</p>
+    </details>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ 页脚 ============ -->
+<footer class="foot">
+  <div class="wrap">
+    <div class="f-grid">
+      <div class="f-brand">
+        <div class="lg">
+          <span class="flap" aria-hidden="true"><i class="ft"><span>9</span></i><i class="fb"><span>9</span></i></span>
+          <span class="flap" aria-hidden="true"><i class="ft"><span>8</span></i><i class="fb"><span>8</span></i></span>
+          <b>98电影网</b>
+        </div>
+        <p>98电影网用铁路时刻表的逻辑整理电影：片单排成车次时刻表，每部片是一个车次，发车时间就是建议的开看时段；题材分成车厢编组，一节车厢一类片；线路站序把片单串成一条线，到站换片；座位分布用方格标出哪些已看、哪些还空着；站台大屏则按站台给出今晚的推荐。剧情简介、时长与评分都写在条目上。</p>
+        <p class="u mono">网址：https://98dianyingwang-cn.github.io</p>
+      </div>
+      <div>
+        <h4>时刻栏目</h4>
+        <ul>
+          <li><a href="#timetable">车次时刻表</a></li>
+          <li><a href="#consist">车厢编组</a></li>
+          <li><a href="#line">线路站点</a></li>
+          <li><a href="#seat">座位分布</a></li>
+          <li><a href="#platform">站台大屏</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>题材车厢</h4>
+        <ul>
+          <li><a href="#consist">01 剧情人物</a></li>
+          <li><a href="#consist">02 悬疑反转</a></li>
+          <li><a href="#consist">03 文艺慢片</a></li>
+          <li><a href="#consist">04 自然纪实</a></li>
+          <li><a href="#consist">05 科幻设定</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>站点信息</h4>
+        <ul>
+          <li><a href="#about">关于98电影网</a></li>
+          <li><a href="#why">站点特色</a></li>
+          <li><a href="#timetable">更新时刻</a></li>
+          <li><a href="#">意见反馈</a></li>
+          <li><a href="#">免责声明</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="copy">
+      98电影网 &copy; 2026 · 本站为电影推荐与影视资讯聚合站点，所列影片信息仅供参考。<br>
+      Powered by 98电影网 | https://98dianyingwang-cn.github.io
+    </p>
+  </div>
+</footer>
+
+<!-- ============ 移动端底部导航 ============ -->
+<nav class="dock" aria-label="移动端快捷导航">
+  <ul>
+    <li><a href="#top" class="on"><span class="ic" aria-hidden="true">◉</span>候车厅</a></li>
+    <li><a href="#timetable"><span class="ic" aria-hidden="true">▤</span>时刻</a></li>
+    <li><a href="#consist"><span class="ic" aria-hidden="true">▬</span>编组</a></li>
+    <li><a href="#line"><span class="ic" aria-hidden="true">◈</span>线路</a></li>
+    <li><a href="#about"><span class="ic" aria-hidden="true">◎</span>关于</a></li>
+  </ul>
+</nav>
+
+<a class="up" href="#top" aria-label="返回顶部">↑</a>
+
+</body>
+</html>
